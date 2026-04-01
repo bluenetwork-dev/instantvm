@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>InstantVM Cloud Launcher</title>
+  <style>
+    /* === CSS === */
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #121212;
+      color: #eee;
+    }
+    header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: #1f1f1f;
+      padding: 15px;
+      border-bottom: 2px solid #333;
+    }
+    h1 { margin: 0; }
+    .controlGroup {
+      display: flex;
+      align-items: center;
+      margin: 8px 0;
+    }
+    .controlGroup label { margin-right: 5px; }
+    select, input, button {
+      margin-right: 8px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: none;
+      font-size: 14px;
+    }
+    button {
+      background: #3b3b3b;
+      color: #eee;
+      cursor: pointer;
+      transition: 0.2s all;
+    }
+    button:hover {
+      background: #555;
+      transform: scale(1.05);
+    }
+    #shareCodeDisplay {
+      margin-top: 5px;
+      font-weight: bold;
+      color: #00ffcc;
+    }
+    main {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      padding: 20px;
+      gap: 20px;
+    }
+    section {
+      background: #1f1f1f;
+      padding: 15px;
+      border-radius: 10px;
+      min-width: 280px;
+      flex: 1 1 300px;
+    }
+    h2 { margin-top: 0; }
+    .appButtons button {
+      display: block;
+      width: 100%;
+      margin: 5px 0;
+    }
+    .gameControls {
+      display: flex;
+      flex-direction: column;
+    }
+    .gameControls select, .gameControls button {
+      margin: 5px 0;
+    }
+    #streamWindow {
+      width: 100%;
+      height: 400px;
+      background: #000;
+      border: 2px solid #333;
+      border-radius: 10px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>InstantVM Cloud Launcher</h1>
+    <div id="sessionControls">
+      <div class="controlGroup">
+        <label for="osSelect">Choose OS:</label>
+        <select id="osSelect"></select>
+        <button onclick="launchOS()">Launch OS</button>
+      </div>
+      <div class="controlGroup">
+        <label for="shareInput">Join Session:</label>
+        <input id="shareInput" placeholder="Enter share code">
+        <button onclick="joinSession()">Join</button>
+      </div>
+    </div>
+    <div id="shareCodeDisplay"></div>
+  </header>
+
+  <main>
+    <section id="apps">
+      <h2>Applications</h2>
+      <div class="appButtons">
+        <button onclick="launchApp('Edge','start msedge')">MS Edge</button>
+        <button onclick="launchApp('Chrome','start chrome')">Chrome</button>
+        <button onclick="launchApp('VS Code','start code')">VS Code</button>
+      </div>
+    </section>
+
+    <section id="games">
+      <h2>Cloud Games</h2>
+      <div class="gameControls">
+        <select id="gameSelect"></select>
+        <select id="gameMode">
+          <option value="desktop">Desktop</option>
+          <option value="phone">Phone</option>
+        </select>
+        <button onclick="launchGame()">Play Game</button>
+      </div>
+    </section>
+
+    <section id="stream">
+      <h2>Live Stream</h2>
+      <div id="streamWindow">No stream active</div>
+    </section>
+  </main>
+
+  <script>
+    // === JS ===
+    let sessionId = null;
+    let shareCode = null;
+    let user = 'guest';
+
+    const supportedOS = ['Windows','Ubuntu','Debian','Fedora','Arch','Kali','PopOS','Manjaro','Android'];
+    const osSelect = document.getElementById('osSelect');
+    const shareDisplay = document.getElementById('shareCodeDisplay');
+    const gameSelect = document.getElementById('gameSelect');
+    const gameMode = document.getElementById('gameMode');
+
+    // Populate OS dropdown
+    supportedOS.forEach(os => {
+      const opt = document.createElement('option');
+      opt.value = os;
+      opt.innerText = os;
+      osSelect.appendChild(opt);
+    });
+
+    async function launchOS(){
+      const osType = osSelect.value;
+      const res = await fetch('/.netlify/functions/createInstance', {
+        method: 'POST',
+        body: JSON.stringify({ osType })
+      });
+      const data = await res.json();
+      sessionId = data.id;
+      shareCode = data.shareCode;
+      shareDisplay.innerText = `Share Code: ${shareCode}`;
+    }
+
+    function joinSession(){
+      sessionId = document.getElementById('shareInput').value;
+      alert('Joined session!');
+    }
+
+    async function launchApp(appName, command){
+      await fetch('/.netlify/functions/control', {
+        method:'POST',
+        body: JSON.stringify({ type:'open_app', appName, command, session:sessionId, user })
+      });
+    }
+
+    async function fetchGames(){
+      const res = await fetch('/.netlify/functions/appLauncher');
+      const data = await res.json();
+      data.forEach(game => {
+        const opt = document.createElement('option');
+        opt.value = game;
+        opt.innerText = game;
+        gameSelect.appendChild(opt);
+      });
+    }
+
+    async function launchGame(){
+      const gameName = gameSelect.value;
+      const mode = gameMode.value;
+      await fetch('/.netlify/functions/control', {
+        method:'POST',
+        body: JSON.stringify({ type:'play_game', gameName, mode, session:sessionId, user })
+      });
+    }
+
+    // Initialize games dropdown
+    fetchGames();
+  </script>
+</body>
+</html>
